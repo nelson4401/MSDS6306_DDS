@@ -113,17 +113,18 @@ plot_correlation(dfTrain, type = "discrete", geom_text_args = list(),theme_confi
 #Identify Job Role specific trends (ie. Data Scientists have the highest job satisfaction)
 
 ```{r}
-#count(dfTrain, Attrition)
-count(dfTrain, Gender, Attrition) #facet_wrap
-count(dfTrain, JobRole, Attrition) #facet_wrap
-count(dfTrain, MaritalStatus, Attrition) #facet_wrap
-#count(dfTrain, OverTime, Attrition)
-xtabs(~ OverTime + Attrition, data=dfTrain, addNA=TRUE)
-
 BarChart(Attrition, data = dfTrain)
 BarChart(JobRole, data = dfTrain)
 #Job Role by Gender
 BarChart(JobRole, by=Gender, stack100=TRUE, main = "Job Role by Gender", data = dfTrain, fill = c("pink3","blue3"))
+#Monthly Income by Job Role
+BarChart(JobRole, by1=MonthlyIncome, main = "Monthly Income by Gender", data = dfTrain)
+#Monthly Income by Gender
+Plot(MonthlyIncome, by1=Gender, quiet=TRUE, data=dfTrain)
+#Monthly Income by JobRole
+Plot(MonthlyIncome, by1=JobRole, quiet=TRUE, data=dfTrain )
+#Histogram to visualize Distribution of Monthly Income
+Histogram(MonthlyIncome, data=dfTrain)
 #Distribution of Marital Status
 BarChart(MaritalStatus, data = dfTrain, legend_labels = TRUE)
 #Marital Status Distribution by Gender
