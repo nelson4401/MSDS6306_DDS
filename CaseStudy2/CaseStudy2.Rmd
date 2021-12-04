@@ -1,0 +1,239 @@
+---
+title: "Case Study 2"
+author: "Lauren Nelson | Jordan Eaddy"
+date: "11/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(DataExplorer) #Simplified EDA 
+library(readr)
+library(dplyr) #needed for filtering
+library(ggplot2)
+library(tidyverse)
+library(caret)
+library(class)
+library(e1071)
+library(tidyr)
+library(edawr)
+library(stringr)
+library(plotly)
+library(psych)
+library(lessR)
+```
+
+##Description
+
+DDSAnalytics is an analytics company that specializes in talent management solutions for Fortune 1000 companies. Talent management is defined as the iterative process of developing and retaining employees. It may include:
+
+-workforce planning
+
+-employee training programs
+
+-identifying high-potential employees and
+
+-reducing/preventing voluntary employee turnover (attrition)
+
+To gain a competitive edge over its competition, DDSAnalytics is planning to leverage data science for talent management. The executive leadership has identified predicting employee turnover as its first application of data science for talent management. Before the business green lights the project, they have tasked your data science team to conduct an analysis of existing employee data.
+
+```{r}
+#read in data
+
+dfTrain <- read.csv("https://raw.githubusercontent.com/BivinSadler/MSDS_6306_Doing-Data-Science/Master/Unit%2014%20and%2015%20Case%20Study%202/CaseStudy2-data.csv", header=T)
+
+#data prep and cleaning
+
+#check dfTrain for NAs
+
+sapply(dfTrain,function(x) sum(is.na(x)))
+
+#we can drop ID, EmployeeCount, EmployeeNumber, Over18, StandardHours as they don't seem to important explanatory variables
+
+dfTrain <- subset(dfTrain,select=c(2,3,4,5,6,7,8,9,12,13,14,15,16,17,18,19,20,21,22,24,25,26,27,29,30,31,32,33,34,35,36))
+
+```
+
+Conduct exploratory data analysis (EDA) to determine factors that lead to attrition.
+
+```{r exploratory data analysis, echo=TRUE}
+
+#Variables
+
+#structure of the data
+str(dfTrain)
+
+#dimensions
+dim(dfTrain)
+
+#high-level view of continuous variables
+plot_histogram(dfTrain, binary_as_factor = TRUE, geom_histogram_args = list(bins = 30L), scale_x = "continuous")
+
+plot_density(dfTrain)
+
+#Categorical Variables-Barplots
+plot_bar(dfTrain)
+
+#### correlations between variables
+
+#continuous
+plot_correlation(dfTrain, type = "continuous", geom_text_args = list(),theme_config = list(legend.position = "right", axis.text.x = element_text(angle = 90)))
+
+#discrete
+plot_correlation(dfTrain, type = "discrete", geom_text_args = list(),theme_config = list(legend.position = "right", axis.text.x = element_text(angle = 90)))
+
+#1 OverTime
+#2 Marital_Status-Single
+#3 Job Role Sales Representative
+#4 Department - Sales
+
+```
+
+Create a full EDA report
+
+```{r full EDA report, echo=FALSE}
+
+#Create a full EDA report
+
+create_report(data=dfTrain, output_file = 'Case Study 2 EDA.html', y='Attrition')
+```
+
+#Identify Top 3 factors that lead to attrition
+
+```{r}
+plot_correlation(dfTrain, type = "discrete", geom_text_args = list(),theme_config = list(legend.position = "right", axis.text.x = element_text(angle =
+
+    90)))
+
+#1 OverTime
+#2 Marital_Status-Single
+#3 Job Role Sales Representative
+```
+
+#Identify Job Role specific trends (ie. Data Scientists have the highest job satisfaction)
+
+```{r}
+#count(dfTrain, Attrition)
+count(dfTrain, Gender, Attrition) #facet_wrap
+count(dfTrain, JobRole, Attrition) #facet_wrap
+count(dfTrain, MaritalStatus, Attrition) #facet_wrap
+#count(dfTrain, OverTime, Attrition)
+xtabs(~ OverTime + Attrition, data=dfTrain, addNA=TRUE)
+
+BarChart(Attrition, data = dfTrain)
+BarChart(JobRole, data = dfTrain)
+#Job Role by Gender
+BarChart(JobRole, by=Gender, stack100=TRUE, main = "Job Role by Gender", data = dfTrain, fill = c("pink3","blue3"))
+#Distribution of Marital Status
+BarChart(MaritalStatus, data = dfTrain, legend_labels = TRUE)
+#Marital Status Distribution by Gender
+BarChart(MaritalStatus, by=Gender, stack100=TRUE, main = "Marital Status by 
+Gender", data = dfTrain, fill = c("pink3","blue3"))
+BarChart(OverTime, data = dfTrain)
+BarChart(EducationField, data = dfTrain, by1=Attrition)
+BarChart(EducationField, data = dfTrain)
+BarChart(Attrition, data = dfTrain, by1=BusinessTravel)
+BarChart(Attrition, data = dfTrain, by=BusinessTravel, stack100=TRUE, main = "Attrition by Business Travel", outer = TRUE)
+#More Attrition among Single Marital Status
+BarChart(Attrition, data = dfTrain, by=MaritalStatus, stack100=TRUE, main = "Attrition by Marital Status", outer = TRUE, fill=c("turquoise", "blue3", "forestgreen"))
+#Attrition by Gender
+BarChart(Attrition, data = dfTrain, by=Gender, stack100=TRUE, main = "Attrition by Gender", outer = TRUE, fill=c("pink3", "blue3"))
+#Attrition by Job Role
+BarChart(Attrition, data = dfTrain, by=JobRole, stack100=TRUE, main = "Attrition by Job Role", outer = TRUE)
+#Attrition by OverTime
+BarChart(Attrition, data = dfTrain, by=OverTime, stack100=TRUE, main = "Attrition by OverTime", outer = TRUE)
+#Attrition by Job Satisfaction
+BarChart(JobSatisfaction, data = dfTrain, by=Attrition, stack100=TRUE, main = "Attrition by Job Satisfaction", outer = TRUE)
+```
+
+#Provide other interesting trends and observations from the EDA
+
+```{r}
+
+```
+
+KNN - Overview of Process
+
+1. Decide on *similarity* or *distance* metric
+2. Split the original labeled dataset into training and test data
+3. Pick an evaluation metric
+4. Run KNN a few times, changing *k* and checking the evaluation measure
+5. Optimize *k* by picking the one with the best evaluation measure
+6. Once *k* is chosen, use the same training set and now create a new test set with No Attrition "CaseStudy2CompSet No Attrition.csv" | then with No Salary "CaseStudy2CompSet No Salary.csv"
+
+Output should be "Case2PredictionsNelsonAttrition.csv -- add to github repo
+Output should be Case2PredictionsNelsonSalary.csv - add to github repo
+
+```{r}
+n.points <- 870 #Number of rows in training_attrition
+
+sampling.rate <- 0.8
+
+#we need the number of points in the test set to calculate the misclassification rate
+num.test.set.labels <- n.points * (1- sampling.rate)
+
+#randomly smaple which rows will go in the training set
+training <- sample(1:n.points, sampling.rate * n.points, replace=FALSE)
+
+#define the training set to be those rows
+
+#dropping ID, EmployeeCount, EmployeeNumber, Over18, StandardHours
+train <- subset(training_attrition[training, ],select=as.factor(c(Age, Attrition)))
+
+#the other rows are going into the test set
+testing <- setdiff (1:n.points, training)
+test <- subset(training_attrition[testing, ],select=as.factor(c(Age, Attrition)))
+
+#this is the subset of labels for the training set
+cl <- training_attrition$Attrition[training]
+
+#subset of labels for the test set, we're withholding these
+true.labels <- training_attrition$Attrition[testing]
+
+#Sensitivity -- true positive rate
+
+#Specificity -- true negative rate
+
+#Accuracy -- ratio of the number of correct labels to the total number of labels, and the misclassification rate, which is just 1 - accuracy.
+
+#Minimizing the misclassification rate then just amounts to maximizing accuracy -- source: DDS Textbook
+
+knn(train, test, cl, k=3)
+
+#loop through and see what the misclassification rate is for different values of k
+for (k in 1:20) {
+print(k)
+predicted.labels <- knn(train, test, cl, k)
+
+#using the R function knn()
+num.incorrect.labels <- sum(predicted.labels != true.labels)
+misclassification.rate <- num.incorrect.labels / num.test.set.labels
+print(misclassification.rate)
+}
+```
+
+\`\`\`
+
+## NaiveBayes Model
+
+\`\`\`{r first full model, echo=TRUE}
+
+#NaiveBayes model
+
+model = naiveBayes(training_attrition\[,c("JobLevel","MonthlyIncome")\],factor(training_attrition\$Attrition, labels = c("No", "Yes")))
+
+table(factor(training_attrition\$Attrition, labels = c("No", "Yes")),predict(model,training_attrition\[,c("JobLevel","MonthlyIncome")\]))
+
+CM = confusionMatrix(table(factor(training_attrition\$Attrition, labels = c("No", "Yes")),predict(model,training_attrition\[,c("JobLevel","MonthlyIncome")\])))
+
+CM
+
+model1 = naiveBayes(training_attrition\[,c("JobSatisfaction","YearsWithCurrManager")\],factor(training_attrition\$Attrition, labels = c("No", "Yes")))
+
+table(factor(training_attrition\$Attrition, labels = c("No", "Yes")),predict(model1,training_attrition\[,c("JobSatisfaction","YearsWithCurrManager")\]))
+
+CM1 = confusionMatrix(table(factor(training_attrition\$Attrition, labels = c("No", "Yes")),predict(model1,training_attrition\[,c("JobSatisfaction","YearsWithCurrManager")\])))
+
+CM1
+
+\`\`\`
