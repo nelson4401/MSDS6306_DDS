@@ -25,8 +25,6 @@ CSD <- read_csv("~/Desktop/Final Project Data/CaseStudy2-data.csv")
 Salary <- read_excel("~/Desktop/Final Project Data/CaseStudy2CompSet No Salary.xlsx")
 
 
-
-
 ```
 
 
@@ -38,38 +36,18 @@ sapply(CSD,function(x)sum(is.na(x))) # No missing Vars
 CSD$Attrition<-ifelse(CSD$Attrition=="Yes",1,0) # Converted Attrition to a logical operation. 1 = Yes, 0 = No
 CSD$OverTime<-ifelse(CSD$OverTime=="No",0,1) # Converted Overtime to a logical operation, 1 = Yes, 0 = NO
 
-CSD %>% inspect_cor()
-#I want to narrow in on just how attrition looks with each variable
-modelcsd %>% inspect_cor(with_col = "Attrition")
-#Visualization of above
-CSD %>% inspect_cor() %>% 
-  show_plot()
-
-
-
 ```
 
 
-```{r Insight: Attrition}
+```{r FINAL Insight: Attrition}
 CSD %>% 
-  group_by(Attrition) %>% 
+  group_by(Attrition, Gender) %>% 
   summarise(Attrition_Percent= 100 * n()/ nrow(CSD))
 # ** Only 16 % of our data actually left their position for one reason or another**
 # Note to self: This may cause problems in the modeling phase. Consider sampling ideas. 
-
-
-
-
-
-
-
-
-
 ```
 
 ```{r FINAL Insight: Job Role Trends}
-# Now I want to know what our population looks like by job role
-
 CSD %>%  # Viz
   ggplot(aes(JobRole, fill = JobRole))+
   geom_bar(aes(y=(..count..)/sum(..count..)))+
@@ -101,105 +79,86 @@ CSD %>%
   theme(axis.title.x = element_text(vjust=-4))+
   labs(title= "Attrition By Job Role", x = "Job Role", y= "", tag= "Fig. 2")+
   scale_y_continuous(labels = percent)
-         # Sales Reps have high attrition, despite having a Job Satisfaction rating in the upper percentile of our data. Monthly Income
 
-  
-CSD %>%
-  ggplot(aes(JobInvolvement, fill=Attrition))+
-  geom_bar()
+# Sales Reps have high attrition, despite having a Job Satisfaction rating in the upper percentile of our data. Monthly Income
 
+CSD%>%
+  ggplot(aes(Gender))+
+  geom_histogram(stat="count")+
+  facet_grid(~JobSatisfaction)+
+  labs(title= "Job Satisfaction by Gender", y="", tag= "Fig. 3")+
+  theme_economist_white()+
+  theme(axis.text.y = element_blank())
+# Women seem to be not satisfied with their work situation
 
-```
-
-```{r}
-CSD %>%  # Table
-  group_by(JobRole) %>% 
-  summarise(percent= 100 * n()/ nrow(CSD))
-
-# Lab Tech(17), Manufacturing Director(10), Research Scientist(19),Sales Exec(22), account for the vast majority of our data.
-
-
-# Of the Job Titles, which ones have the lowest job satisfaction
-
-CSD %>% 
-  ggplot(aes(JobSatisfaction, JobRole, fill = factor(Attrition)))+
-  geom_bar(stat= "identity")
-
-
-# Income by Job Title Distributions 
-CSD %>% 
-  ggplot(aes(reorder(x=JobRole,-MonthlyIncome),y=MonthlyIncome))+
-  geom_boxplot()+
-  scale_y_continuous(labels= dollar_format())+
-  labs(title= "Income by Role", y = "Income", x = "Job Title", tag = "Fig. 2")
-
-
-# Income by Education Distribution
-
-CSD %>% 
-  ggplot(aes(reorder(Education, - MonthlyIncome), MonthlyIncome, fill = ))+
-  geom_boxplot()+
-  scale_y_continuous(labels= dollar_format())+
-  theme_wsj()
-
-
-
-```
-
-
-```{r Job Level}
-CSD %>% 
-  ggplot(aes(reorder(JobLevel, - MonthlyIncome), MonthlyIncome))+
-  geom_boxplot()
-# As expected, Job levels by Monthly Income have a strong linear relationship
-
-
-
-
-
-```
-
-
-
-
-
-```{r Gender Insights}
-CSD %>%  # Table
-  group_by(Gender) %>% 
-  summarise(percent= 100 * n()/ nrow(CSD))
-# Our Data is 40 % F and 59 % M
 
 CSD %>% 
   ggplot(aes(Gender, MonthlyIncome))+
-  geom_boxplot()
-# Men and Woman are paid fairly evenly
+  geom_bar(stat="identity")+
+  facet_wrap(~JobRole)+
+  scale_y_continuous(labels=dollar_format())+
+  labs(title = "Income by Gender & Job Role", tag = "Fig.4",y="Monthly Income")+
+  theme_economist_white()+
+  theme(axis.title.y = element_text(vjust = 2))
+ # Woman are paid less than men
 
+CSD %>% 
+  ggplot(aes(Gender,Education, fill = factor(Education)))+
+  geom_bar(stat="identity", position = "dodge")+
+  facet_wrap(~JobRole)+
+  theme_economist_white()+
+  theme(axis.title.y = element_text(vjust = 2))+
+  labs(title = "Education Levels by Job Role", y="Education Level", tag="Fig.3")
+
+```
+
+```{r Income Model}
+RMSE<-function(error) {sqrt(mean(error^2))} #Function to get RMSE programatically 
+
+Incomesplit<- .80
+
+SM<-CSD%>% 
+  select(JobLevel,TotalWorkingYears, MonthlyIncome, Age, JobRole)
+
+# Model Creation
+
+Trainindicieslm= sample(1:dim(SM)[1], round(Incomesplit * dim(SM)[1]))
+LRMtr<- SM[Trainindicieslm,]
+LRMte<- SM[-Trainindicieslm,]
+
+
+fit=lm(MonthlyIncome~., data=LRMtr)
+
+# Model Creation
+
+# Model Test RMSE < 3000
+
+prediction<-predict.lm(fit, newdata = Salary)
+
+rmse(LRMte$MonthlyIncome, predict(fit, LRMte)) #Sanity Check
+
+# 935.93
+
+summary(prediction)
+
+
+predictiondf<-as.data.frame(prediction)
+
+Salary$Salary<-predictiondf[,1]
+
+CSPRED = Salary %>% 
+  select("ID","Salary") %>% 
+  arrange(ID)
+
+write.csv(CSPRED, file = "Case2Predictions_Nelson_Eaddy Salary.csv")
 
 
 ```
 
 
 ```{r}
-JobLevel,TotalWorkingYears, MonthlyIncome, Age, JobRole
 
 
 
 
 ```
-
-
-```{r}
-```
-
-
-```{r}
-```
-
-
-```{r}
-```
-
-
-```{r}
-```
-
