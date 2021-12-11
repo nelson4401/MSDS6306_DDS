@@ -6,3 +6,4 @@ We work for DDSAnalytics, an analytics company specializing in talent management
 Our model was fitted with 5 variables which gave us a RMSE of ~935 dollars. 
 
 # Attrition
+Our K-Nearest Neighbor Model used K = 11 and gave us a Sensitivity of 100% and a Specificity of 77%
