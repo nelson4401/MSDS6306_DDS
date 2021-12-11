@@ -1,240 +1,400 @@
 ---
 title: "Case Study 2"
 author: "Lauren Nelson | Jordan Eaddy"
-date: "11/16/2021"
+date: "12/11/2021"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(DataExplorer) #Simplified EDA 
 library(readr)
-library(dplyr) #needed for filtering
+library(dplyr) #filtering
 library(ggplot2)
 library(tidyverse)
 library(caret)
 library(class)
-library(e1071)
+library(e1071)#Naive Bayes
 library(tidyr)
-library(edawr)
 library(stringr)
 library(plotly)
 library(psych)
 library(lessR)
+library(GGally)
+library(ggcorrplot)
+library (ggthemes)
+library(inspectdf)
+library(scales)
+library(readxl)
+library(Metrics)
+library(DT)
 ```
 
 ##Description
-
 DDSAnalytics is an analytics company that specializes in talent management solutions for Fortune 1000 companies. Talent management is defined as the iterative process of developing and retaining employees. It may include:
 
 -workforce planning
-
--employee training programs
-
--identifying high-potential employees and
-
--reducing/preventing voluntary employee turnover (attrition)
+-employee training programs 
+-identifying high-potential employees and 
+-reducing/preventing voluntary employee turnover (attrition) 
 
 To gain a competitive edge over its competition, DDSAnalytics is planning to leverage data science for talent management. The executive leadership has identified predicting employee turnover as its first application of data science for talent management. Before the business green lights the project, they have tasked your data science team to conduct an analysis of existing employee data.
 
+
 ```{r}
 #read in data
+CSD <- read.csv("https://raw.githubusercontent.com/BivinSadler/MSDS_6306_Doing-Data-Science/Master/Unit%2014%20and%2015%20Case%20Study%202/CaseStudy2-data.csv", header = T)
 
-dfTrain <- read.csv("https://raw.githubusercontent.com/BivinSadler/MSDS_6306_Doing-Data-Science/Master/Unit%2014%20and%2015%20Case%20Study%202/CaseStudy2-data.csv", header=T)
+NoAttr <- read.csv("/Users/lnelson/Box/MSDS/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2CompSet No Attrition.csv")
+
+Salary <- read_excel("/Users/lnelson/Box/MSDS/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2CompSet No Salary.xlsx")
+
+
+glimpse(CSD) # Show Data Structure
+names <- c(3,4,6,9,13,17,19,23,24) #Categorical Variables
+head(names)
+CSD[,names] <-lapply(CSD[,names] , factor) #convert chr to factor
+as.numeric(as.character(names))
+glimpse(CSD) # Show Data Structure
+
+CSD$Attrition<-ifelse(CSD$Attrition=="Yes",1,0) # Converted Attrition to a logical operation. 1 = Yes, 0 = No
+CSD$Attrition<-as.numeric(as.character(CSD$Attrition))
+CSD$OverTime<-ifelse(CSD$OverTime=="Yes",1,0) # Converted Overtime to a logical operation, 1 = Yes, 0 = NO
+CSD$OverTime<-as.numeric(as.character(CSD$OverTime))
+
+
+sapply(CSD, class)
 
 #data prep and cleaning
-
-#check dfTrain for NAs
-
-sapply(dfTrain,function(x) sum(is.na(x)))
-
-#we can drop ID, EmployeeCount, EmployeeNumber, Over18, StandardHours as they don't seem to important explanatory variables
-
-dfTrain <- subset(dfTrain,select=c(2,3,4,5,6,7,8,9,12,13,14,15,16,17,18,19,20,21,22,24,25,26,27,29,30,31,32,33,34,35,36))
-
+#check CSD for NAs
+sapply(CSD,function(x) sum(is.na(x)))
+# drop ID, EmployeeCount, EmployeeNumber, Over18, StandardHours -- no value for EDA
+CSD <- subset(CSD,select=c(2,3,4,5,6,7,8,9,12,13,14,15,16,17,18,19,20,21,22,24,25,26,27,29,30,31,32,33,34,35,36))
+sapply(CSD, class)
+#Distance from Home
+#EnvironmentSatisfaction
+#PerformanceRating
 ```
 
-Conduct exploratory data analysis (EDA) to determine factors that lead to attrition.
+#Exploratory Data Analysis
 
-```{r exploratory data analysis, echo=TRUE}
-
-#Variables
-
+```{r exploratory data analysis}
 #structure of the data
-str(dfTrain)
-
+str(CSD)
 #dimensions
-dim(dfTrain)
-
+dim(CSD)
 #high-level view of continuous variables
-plot_histogram(dfTrain, binary_as_factor = TRUE, geom_histogram_args = list(bins = 30L), scale_x = "continuous")
-
-plot_density(dfTrain)
-
+plot_histogram(CSD, binary_as_factor = TRUE, geom_histogram_args = list(bins = 30L), scale_x = "continuous")
+plot_density(CSD)
 #Categorical Variables-Barplots
-plot_bar(dfTrain)
-
-#### correlations between variables
-
-#continuous
-plot_correlation(dfTrain, type = "continuous", geom_text_args = list(),theme_config = list(legend.position = "right", axis.text.x = element_text(angle = 90)))
-
-#discrete
-plot_correlation(dfTrain, type = "discrete", geom_text_args = list(),theme_config = list(legend.position = "right", axis.text.x = element_text(angle = 90)))
-
-#1 OverTime
-#2 Marital_Status-Single
-#3 Job Role Sales Representative
-#4 Department - Sales
-
+plot_bar(CSD)
 ```
 
-Create a full EDA report
+#Interesting Insights into the Data
+```{r}
+#Data
+cordata = CSD[,c(1,2,4,6,7,9,11,12,13,15,17,18,19,21,22,23,24,25,26,27,28,29,30,31)] #Numerical Variables
+corr <- round(cor(cordata), 1) #Create Correlation Matrix
+#corr #Correlation Matrix
 
-```{r full EDA report, echo=FALSE}
+#Job Level and Monthly Income = 1
+#Total Working Years and Job level = .8
+#Total Working Years and Monthly Income = .8
+#Percent Salary Hike and Performance Rating = .8
+#Age and Total Working Years = .7
 
-#Create a full EDA report
+#Indicates a linear relationship between Total Working Years and JobLevel
+plot(CSD$TotalWorkingYears,CSD$JobLevel, main="Correlation between Total Working Years & Job Level", xlab="Total Working Years", ylab="Job Level")
 
-create_report(data=dfTrain, output_file = 'Case Study 2 EDA.html', y='Attrition')
+cor(CSD$TotalWorkingYears, CSD$JobLevel)
+
+cor.test(CSD$TotalWorkingYears, CSD$JobLevel)
+
+#Indicates a linear relationship between Total Working Years and Monthly Income
+plot(CSD$TotalWorkingYears,CSD$MonthlyIncome, main="Correlation between Total Working Years & Monthly Income", xlab="Total Working Years", ylab="Monthly Income")
+
+cor(CSD$TotalWorkingYears,CSD$MonthlyIncome)
+
+cor.test(CSD$TotalWorkingYears,CSD$MonthlyIncome)
+
+#Indicates a linear relationship between Percent Salary Hike and Performance Rating
+plot(CSD$PercentSalaryHike,CSD$PerformanceRating, main="Correlation between Percent Salary Hike & Performance Rating", xlab="Percent Salary Hike", ylab="Performance Rating")
+
+cor(CSD$PercentSalaryHike,CSD$PerformanceRating)
+
+cor.test(CSD$PercentSalaryHike,CSD$PerformanceRating)
+
+#Relationship between Categorical Variables
+#Frequency Table
+# 2 - way table
+
+
+#Attrition by OverTime
+BarChart(Attrition, data = CSD, by=OverTime, stack100=TRUE, main = "Attrition by OverTime", outer = TRUE, fill=c("black", "gold3"))
+
+#2 Marital_Status-Single
+two_wayMA = table(CSD$MaritalStatus, CSD$Attrition)
+
+two_wayMA
+
+
+prop.table(two_wayMA) # cell percentages
+
+#More Attrition among Single Marital Status
+BarChart(Attrition, data = CSD, by=MaritalStatus, stack100=TRUE, main = "Attrition by Marital Status", outer = TRUE, fill=c("black", "gold3", "turquoise3"))
+
+#3 Job Role Sales Representative
+two_wayJS = table(CSD$JobRole, CSD$Attrition)
+
+two_wayJS
+
+
+prop.table(two_wayJS) # cell percentages
+
+#Attrition by Job Role
+BarChart(Attrition, data = CSD, by=JobRole, stack100=TRUE, main = "Attrition by Job Role", outer = TRUE, )
+
+BarChart(Attrition, data = CSD)
+BarChart(JobRole, data = CSD)
+#Job Role by Gender
+BarChart(JobRole, by=Gender, stack100=TRUE, main = "Job Role by Gender", data = CSD, fill = c("pink3","blue3"))
+#Distribution of Marital Status
+BarChart(MaritalStatus, data = CSD, legend_labels = TRUE)
+#Marital Status Distribution by Gender
+BarChart(MaritalStatus, by=Gender, stack100=TRUE, main = "Marital Status by 
+Gender", data = CSD, fill = c("pink3","blue3"))
+BarChart(OverTime, data = CSD)
+BarChart(EducationField, data = CSD, by1=Attrition)
+#BarChart(Attrition, data = CSD, by1=BusinessTravel)
+BarChart(Attrition, data = CSD, by=BusinessTravel, stack100=TRUE, main = "Attrition by Business Travel", outer = TRUE)
+#More Attrition among Single Marital Status
+BarChart(Attrition, data = CSD, by=MaritalStatus, stack100=TRUE, main = "Attrition by Marital Status", outer = TRUE, fill=c("turquoise", "blue3", "forestgreen"))
+#Attrition by Gender
+BarChart(Attrition, data = CSD, by=Gender, stack100=TRUE, main = "Attrition by Gender", outer = TRUE, fill=c("pink3", "blue3"))
+
+
+#Attrition by Job Satisfaction - lower job satisfaction = increased attrition
+BarChart(JobSatisfaction, data = CSD, by=Attrition, stack100=TRUE, main = "Attrition by Job Satisfaction", outer = TRUE)
+```
+
+
+```{r FINAL Insight: Attrition}
+CSD %>% 
+  group_by(Attrition, Gender) %>% 
+  summarise(Attrition_Percent= 100 * n()/ nrow(CSD))
+# ** Only 16 % of our data actually left their position for one reason or another**
+# Note to self: This may cause problems in the modeling phase. Consider sampling ideas. 
+
+#JobRole Trends
+
+CSD %>%  # Viz
+  ggplot(aes(JobRole, fill = JobRole))+
+  geom_bar(aes(y=(..count..)/sum(..count..)))+
+  theme(legend.position = "None")+
+  scale_y_continuous(labels= percent)+
+    labs(title= "Job Role Percentages", y = "Percentage", x = "Job Role",tag = "Fig. 1" )+
+  theme_igray()
+
+# Income by Job Title Distributions 
+CSD %>% 
+  ggplot(aes(reorder(x=JobRole,-MonthlyIncome),y=MonthlyIncome, fill= JobRole))+
+  geom_boxplot()+
+  scale_y_continuous(labels= dollar_format())+
+  labs(title= "Income by Role", y = "Income", x = "Job Title", tag = "Fig. 3")+
+  theme_economist_white()+
+  theme(legend.position = "none",axis.title.y = element_text(vjust= 4) )+
+  guides(x = guide_axis(n.dodge= 2))
+
+# 16 Percent left thier role
+CSD %>% 
+  group_by(Attrition) %>% 
+  summarise(Attrition_Percent= 100 * n()/ nrow(CSD))
+
+# Attrition by Job Role
+CSD %>% 
+  ggplot(aes(JobRole, y=(..count..)/sum(..count..), fill=Attrition))+
+  geom_bar()+
+  theme_economist_white()+
+  theme(axis.title.x = element_text(vjust=-4))+
+  labs(title= "Attrition By Job Role", x = "Job Role", y= "", tag= "Fig. 2")+
+  scale_y_continuous(labels = percent)
+
+# Sales Reps have high attrition, despite having a Job Satisfaction rating in the upper percentile of our data. Monthly Income
+CSD%>%
+  ggplot(aes(Gender))+
+  geom_histogram(stat="count")+
+  facet_grid(~JobSatisfaction)+
+  labs(title= "Job Satisfaction by Gender", y="", tag= "Fig. 3")+
+  theme_economist_white()+
+  theme(axis.text.y = element_blank())
+
+# Women seem to be not satisfied with their work situation
+CSD %>% 
+  ggplot(aes(Gender, MonthlyIncome))+
+  geom_bar(stat="identity")+
+  facet_wrap(~JobRole)+
+  scale_y_continuous(labels=dollar_format())+
+  labs(title = "Income by Gender & Job Role", tag = "Fig.4",y="Monthly Income")+
+  theme_economist_white()+
+  theme(axis.title.y = element_text(vjust = 2))
+ 
+# Women are paid less than men
+CSD %>% 
+  ggplot(aes(Gender,Education, fill = factor(Education)))+
+  geom_bar(stat="identity", position = "dodge")+
+  facet_wrap(~JobRole)+
+  theme_economist_white()+
+  theme(axis.title.y = element_text(vjust = 2))+
+  labs(title = "Education Levels by Job Role", y="Education Level", tag="Fig.3")
 ```
 
 #Identify Top 3 factors that lead to attrition
 
 ```{r}
-plot_correlation(dfTrain, type = "discrete", geom_text_args = list(),theme_config = list(legend.position = "right", axis.text.x = element_text(angle =
-
+#### We will now start looking for the correlations in the data between variables. 
+#### correlations between variables
+#continuous
+plot_correlation(CSD, type = "continuous", geom_text_args = list(),theme_config = list(legend.position = "right", axis.text.x = element_text(angle =
     90)))
-
+#discrete
+plot_correlation(CSD, type = "discrete", geom_text_args = list(),theme_config = list(legend.position = "right", axis.text.x = element_text(angle =
+    90)))
 #1 OverTime
 #2 Marital_Status-Single
 #3 Job Role Sales Representative
 ```
 
-#Identify Job Role specific trends (ie. Data Scientists have the highest job satisfaction)
+
+\#Identify Job Role specific trends 
 
 ```{r}
-BarChart(Attrition, data = dfTrain)
-BarChart(JobRole, data = dfTrain)
-#Job Role by Gender
-BarChart(JobRole, by=Gender, stack100=TRUE, main = "Job Role by Gender", data = dfTrain, fill = c("pink3","blue3"))
-#Monthly Income by Job Role
-BarChart(JobRole, by1=MonthlyIncome, main = "Monthly Income by Gender", data = dfTrain)
-#Monthly Income by Gender
-Plot(MonthlyIncome, by1=Gender, quiet=TRUE, data=dfTrain)
-#Monthly Income by JobRole
-Plot(MonthlyIncome, by1=JobRole, quiet=TRUE, data=dfTrain )
-#Histogram to visualize Distribution of Monthly Income
-Histogram(MonthlyIncome, data=dfTrain)
-#Distribution of Marital Status
-BarChart(MaritalStatus, data = dfTrain, legend_labels = TRUE)
-#Marital Status Distribution by Gender
-BarChart(MaritalStatus, by=Gender, stack100=TRUE, main = "Marital Status by 
-Gender", data = dfTrain, fill = c("pink3","blue3"))
-BarChart(OverTime, data = dfTrain)
-BarChart(EducationField, data = dfTrain, by1=Attrition)
-BarChart(EducationField, data = dfTrain)
-BarChart(Attrition, data = dfTrain, by1=BusinessTravel)
-BarChart(Attrition, data = dfTrain, by=BusinessTravel, stack100=TRUE, main = "Attrition by Business Travel", outer = TRUE)
-#More Attrition among Single Marital Status
-BarChart(Attrition, data = dfTrain, by=MaritalStatus, stack100=TRUE, main = "Attrition by Marital Status", outer = TRUE, fill=c("turquoise", "blue3", "forestgreen"))
-#Attrition by Gender
-BarChart(Attrition, data = dfTrain, by=Gender, stack100=TRUE, main = "Attrition by Gender", outer = TRUE, fill=c("pink3", "blue3"))
-#Attrition by Job Role
-BarChart(Attrition, data = dfTrain, by=JobRole, stack100=TRUE, main = "Attrition by Job Role", outer = TRUE)
-#Attrition by OverTime
-BarChart(Attrition, data = dfTrain, by=OverTime, stack100=TRUE, main = "Attrition by OverTime", outer = TRUE)
-#Attrition by Job Satisfaction
-BarChart(JobSatisfaction, data = dfTrain, by=Attrition, stack100=TRUE, main = "Attrition by Job Satisfaction", outer = TRUE)
+#Attrition by Job Satisfaction - lower job satisfaction = increased attrition
+BarChart(JobRole, data = CSD, by1=JobSatisfaction)
 ```
 
-#Provide other interesting trends and observations from the EDA
-
-```{r}
-
-```
 
 KNN - Overview of Process
 
-1. Decide on *similarity* or *distance* metric
-2. Split the original labeled dataset into training and test data
-3. Pick an evaluation metric
-4. Run KNN a few times, changing *k* and checking the evaluation measure
-5. Optimize *k* by picking the one with the best evaluation measure
-6. Once *k* is chosen, use the same training set and now create a new test set with No Attrition "CaseStudy2CompSet No Attrition.csv" | then with No Salary "CaseStudy2CompSet No Salary.csv"
+1.  Decide on *similarity* or *distance* metric
+2.  Split the original labeled dataset into training and test data
+3.  Pick an evaluation metric
+4.  Run KNN a few times, changing *k* and checking the evaluation measure
+5.  Optimize *k* by picking the one with the best evaluation measure
+6.  Once *k* is chosen, use the same training set and now create a new test set with No Attrition "CaseStudy2CompSet No Attrition.csv" \| then with No Salary "CaseStudy2CompSet No Salary.csv"
 
-Output should be "Case2PredictionsNelsonAttrition.csv -- add to github repo
-Output should be Case2PredictionsNelsonSalary.csv - add to github repo
+#Output should be "Case2PredictionsNelson-EaddyAttrition.csv -- add to github repo
 
-```{r}
-n.points <- 870 #Number of rows in training_attrition
 
-sampling.rate <- 0.8
+```{r echo=TRUE}
+#install.packages("caTools")
+library(caTools)
 
-#we need the number of points in the test set to calculate the misclassification rate
-num.test.set.labels <- n.points * (1- sampling.rate)
 
-#randomly smaple which rows will go in the training set
-training <- sample(1:n.points, sampling.rate * n.points, replace=FALSE)
+#Classify Attrition into two classes: 
+#1. True
+#2. False
 
-#define the training set to be those rows
+attrition.subset <- CSD[c(6,20,22)]
+#CSD[,attrition.subset$Attrition] <-lapply(CSD[,attrition.subset$Attrition] , factor) #convert chr to factor
+#CSD$Attrition<-ifelse(CSD$Attrition=="Yes",1,0)
+#CSD$Attrition<-as.numeric(as.character(CSD$Attrition))
+#Normalization
+normalize <- function(x) {
+return ((x - min(x)) / (max(x) - min(x))) }
+attrition.subset.n <- as.data.frame(lapply(attrition.subset[,1:3], normalize))
 
-#dropping ID, EmployeeCount, EmployeeNumber, Over18, StandardHours
-train <- subset(training_attrition[training, ],select=as.factor(c(Age, Attrition)))
+#Data Splicing
+set.seed(5)
+attr.d <- sample(1:nrow(attrition.subset.n),size=nrow(attrition.subset.n)*0.7,replace = FALSE) #random selection of 70% data.
+ 
+train.attrition <- attrition.subset[attr.d,] # 70% training data
+test.attrition <- attrition.subset[-attr.d,] # remaining 30% test data
 
-#the other rows are going into the test set
-testing <- setdiff (1:n.points, training)
-test <- subset(training_attrition[testing, ],select=as.factor(c(Age, Attrition)))
+#Creating seperate dataframe for 'Attrition' feature which is our target.
+train.attrition_labels <- attrition.subset[attr.d,2]
+test.attrition_labels <-attrition.subset[-attr.d,2]
 
-#this is the subset of labels for the training set
-cl <- training_attrition$Attrition[training]
 
-#subset of labels for the test set, we're withholding these
-true.labels <- training_attrition$Attrition[testing]
+	#Find the number of observation
+NROW(train.attrition_labels) 
+sqrt(609) #25
+knn.25 <- knn(train=train.attrition, test=test.attrition, cl=train.attrition_labels, k=25)
+knn.11 <- knn(train=train.attrition, test=test.attrition, cl=train.attrition_labels, k=11)
 
-#Sensitivity -- true positive rate
+#Model Evaluation
+#Calculate the proportion of correct classification for k = 25, 1
+ACC.25 <- 100 * sum(test.attrition_labels == knn.25)/NROW(test.attrition_labels)
+ACC.25
+ACC.11 <- 100 * sum(test.attrition_labels == knn.11)/NROW(test.attrition_labels)
+ACC.11
 
-#Specificity -- true negative rate
+confusionMatrix(table(knn.25 ,test.attrition_labels))
+confusionMatrix(table(knn.11 ,test.attrition_labels))
 
-#Accuracy -- ratio of the number of correct labels to the total number of labels, and the misclassification rate, which is just 1 - accuracy.
-
-#Minimizing the misclassification rate then just amounts to maximizing accuracy -- source: DDS Textbook
-
-knn(train, test, cl, k=3)
-
-#loop through and see what the misclassification rate is for different values of k
-for (k in 1:20) {
-print(k)
-predicted.labels <- knn(train, test, cl, k)
-
-#using the R function knn()
-num.incorrect.labels <- sum(predicted.labels != true.labels)
-misclassification.rate <- num.incorrect.labels / num.test.set.labels
-print(misclassification.rate)
+i=1
+k.optm=1
+for (i in 1:30) {
+ knn.mod <- knn(train=train.attrition,test=test.attrition, cl=train.attrition_labels, k=i)
+ k.optm[i] <- 100 * sum(test.attrition_labels == knn.mod)/NROW(test.attrition_labels)
+ k=i
+ cat(k,'=',k.optm[i],'')
 }
+
 ```
 
-\`\`\`
+```{r Income Model}
+setwd("/Users/lnelson/Box/MSDS/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/")
+RMSE<-function(error) {sqrt(mean(error^2))} #Function to get RMSE programatically 
+Incomesplit<- .80
+SM<-CSD%>% 
+  select(JobLevel,TotalWorkingYears, MonthlyIncome, Age, JobRole)
+# Model Creation
+Trainindicieslm= sample(1:dim(SM)[1], round(Incomesplit * dim(SM)[1]))
+LRMtr<- SM[Trainindicieslm,]
+LRMte<- SM[-Trainindicieslm,]
+fit=lm(MonthlyIncome~., data=LRMtr)
+# Model Creation
+# Model Test RMSE < 3000
+prediction<-predict.lm(fit, newdata = Salary)
+rmse(LRMte$MonthlyIncome, predict(fit, LRMte)) #Sanity Check
+# 935.93
+summary(prediction)
+predictiondf<-as.data.frame(prediction)
+Salary$Salary<-predictiondf[,1]
+CSPRED = Salary %>% 
+  select("ID","Salary") %>% 
+  arrange(ID)
+write.csv(CSPRED, file = "Case2Predictions_Nelson_Eaddy Salary.csv")
+```
 
-## NaiveBayes Model
 
-\`\`\`{r first full model, echo=TRUE}
+```{r}
+#NaiveBayes model  
 
-#NaiveBayes model
+NBCSD = CSD %>% filter(!is.na(DistanceFromHome) & !is.na(OverTime) & !is.na(PerformanceRating) & !is.na(Attrition))
+set.seed(9)
+trainIndices1 = sample(seq(1:length(NBCSD$Attrition)),round(.7*length(NBCSD$Attrition)))
+train1 = NBCSD[trainIndices1,]
+test1 = NBCSD[-trainIndices1,]
 
-model = naiveBayes(training_attrition\[,c("JobLevel","MonthlyIncome")\],factor(training_attrition\$Attrition, labels = c("No", "Yes")))
+head(train1)
+head(test1)
 
-table(factor(training_attrition\$Attrition, labels = c("No", "Yes")),predict(model,training_attrition\[,c("JobLevel","MonthlyIncome")\]))
+model1 = naiveBayes(train1[,c(6,20,22)],(train1$Attrition),laplace = 1)
 
-CM = confusionMatrix(table(factor(training_attrition\$Attrition, labels = c("No", "Yes")),predict(model,training_attrition\[,c("JobLevel","MonthlyIncome")\])))
+table(predict(model1,test1[,c(6,20,22)]),(test1$Attrition))
 
-CM
+CM5 = confusionMatrix(table(predict(model1,test1[,c(6,20,22)]),(test1$Attrition)))
 
-model1 = naiveBayes(training_attrition\[,c("JobSatisfaction","YearsWithCurrManager")\],factor(training_attrition\$Attrition, labels = c("No", "Yes")))
+CM5
+```
 
-table(factor(training_attrition\$Attrition, labels = c("No", "Yes")),predict(model1,training_attrition\[,c("JobSatisfaction","YearsWithCurrManager")\]))
+Create a full EDA report
 
-CM1 = confusionMatrix(table(factor(training_attrition\$Attrition, labels = c("No", "Yes")),predict(model1,training_attrition\[,c("JobSatisfaction","YearsWithCurrManager")\])))
+```{r full EDA report, echo=FALSE}
+#Create a full EDA report
+#create_report(data=CSD, output_file = 'Case Study 2 EDA.html', y='Attrition')
+```
 
-CM1
-
-\`\`\`
